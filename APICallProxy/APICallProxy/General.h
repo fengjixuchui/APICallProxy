@@ -39,6 +39,24 @@ NTSTATUS APIProxyAllocateVirtualMemory(AllocateVirtualMeomryInfo* AllocateMemory
 	return Status;
 }
 
+NTSTATUS APIProxyFreeVirtualMemory(FreeVirtualMeomryInfo* FreeMemoryInfo) {
+	NTSTATUS Status = STATUS_SUCCESS;
+	SIZE_T RegionSize = NULL;
+
+	__try {
+		Status =  ZwFreeVirtualMemory(FreeMemoryInfo->ProcessHandle, &(FreeMemoryInfo->BaseAddress), &RegionSize, MEM_RELEASE);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+
+		Status = STATUS_ACCESS_VIOLATION;
+#if DEBUG
+		DbgPrint("APICallProxy: Error Access Violation while Free Memory inside process Status Code 0x%x\n", Status);
+#endif
+
+	}
+	return Status;
+}
+
 NTSTATUS APIProxyProtectVirtualMemory(VirtualProtectInfo* MemoryProtectionInfo) {
 	NTSTATUS Status = STATUS_SUCCESS;
 
@@ -93,7 +111,7 @@ NTSTATUS APIProxyReadVirtualMemory(ReadWriteVirtualMemoryInfo* ReadMemoryInfo) {
 	return Status;
 }
 
-NTSTATUS APIProxyWriteVirtualMemory(ReadWriteVirtualMemoryInfo* WriteMemoryInfo) {
+NTSTATUS APIProxyWriteVirtualMemory(_In_ ReadWriteVirtualMemoryInfo* WriteMemoryInfo) {
 	NTSTATUS Status = STATUS_SUCCESS;
 	PEPROCESS Process = NULL;
 
@@ -107,6 +125,7 @@ NTSTATUS APIProxyWriteVirtualMemory(ReadWriteVirtualMemoryInfo* WriteMemoryInfo)
 
 		SIZE_T Result;
 		Status = MmCopyVirtualMemory(PsGetCurrentProcess(), WriteMemoryInfo->Data, Process, WriteMemoryInfo->BaseAddress, WriteMemoryInfo->DataLen, KernelMode, &Result);
+
 #if DEBUG
 		if (!NT_SUCCESS(Status))
 			DbgPrint("APICallProxy: Error Writting Virtual Address Space using MmCopyVirtualMemory  Failed Status Code %x\n", Status);
@@ -308,3 +327,39 @@ NTSTATUS APIProxyQueueUserAPC(QueueUSerApcInfo* APCInfo) {
 
 	return Status;
 }
+
+
+NTSTATUS APIProxyLoadDriver(PUNICODE_STRING DriverRegistryPath) {
+	NTSTATUS Status = STATUS_SUCCESS;
+
+	__try {
+		Status = ZwLoadDriver(DriverRegistryPath);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+
+		Status = STATUS_ACCESS_VIOLATION;
+#if DEBUG
+		DbgPrint("APICallProxy: Error Access Violation while Loading Driver Status Code 0x%x\n", Status);
+#endif
+
+	}
+	return Status;
+}
+
+NTSTATUS APIProxyUnLoadDriver(PUNICODE_STRING DriverRegistryPath) {
+	NTSTATUS Status = STATUS_SUCCESS;
+
+	__try {
+		Status = ZwUnloadDriver(DriverRegistryPath);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+
+		Status = STATUS_ACCESS_VIOLATION;
+#if DEBUG
+		DbgPrint("APICallProxy: Error Access Violation while Loading Driver Status Code 0x%x\n", Status);
+#endif
+
+	}
+	return Status;
+}
+

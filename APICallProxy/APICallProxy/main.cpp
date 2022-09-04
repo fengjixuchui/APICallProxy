@@ -1,15 +1,18 @@
 #include <ntifs.h>
 #include <ntddk.h>
 #include <wdm.h>
+#include <wsk.h>
 #include "IOCTLCodes.h"
 #include "Struct.h"
 #include "CommonStruct.h"
 #include "Prototypes.h"
+#include "Utility.h"
 #include "FileSystem.h"
 #include "Process.h"
 #include "Thread.h"
+#include "Registry.h"
+#include "Network.h"
 #include "General.h"
-#include "Utility.h"
 
 
 // DriverEntry
@@ -167,8 +170,9 @@ NTSTATUS APIProxyDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 
 		Status = APIProxyReadFile(ReadInfo);
 
-		break;
 	}
+
+	break;
 
 	case IOCTL_API_PROXY_GET_FILE_SIZE_FROM_HANDLE:
 	{
@@ -301,6 +305,19 @@ NTSTATUS APIProxyDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 
 	break;
 
+	case IOCTL_API_PROXY_FREE_MEMORY_IN_PROCESS_USING_HANDLE:
+	{
+		auto FreeMemoryInfo = (FreeVirtualMeomryInfo*)UserData;
+
+		if (DataSize < sizeof(FreeVirtualMeomryInfo)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+		Status = APIProxyFreeVirtualMemory(FreeMemoryInfo);
+	}
+
+	break;
+
 	case IOCTL_API_PROXY_WRITE_PROCESS_MEMORY:
 	{
 		auto WriteMemoryInfo = (ReadWriteVirtualMemoryInfo*)UserData;
@@ -329,7 +346,6 @@ NTSTATUS APIProxyDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 
 	break;
 
-	//ObReferenceObjectByHandle use handle insted of PID
 	case IOCTL_API_PROXY_SUSPEND_PROCESS:
 	{
 		auto ProcessHandle = (HANDLE*)UserData;
@@ -343,6 +359,7 @@ NTSTATUS APIProxyDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 	}
 
 	break;
+
 	case IOCTL_API_PROXY_RESUME_PROCESS:
 	{
 		auto ProcessHandle = (HANDLE*)UserData;
@@ -496,12 +513,254 @@ NTSTATUS APIProxyDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 		Status = APIProxyQueueUserAPC(APCInfo);
 	}
 
-	case API_PROXY_LOAD_DRIVER:
+	break;
+
+	case IOCTL_API_PROXY_LOAD_DRIVER:
 	{
-		// TODO
+		auto UserRegPath = (WCHAR*)UserData;
+		UNICODE_STRING RegPath;
+
+		// must copy the registry path from User Mode buffer to Kernel mode buffer (the method used in communication is METHOD_NEITHER)
+		WCHAR SystemRegPath[500];
+		wcscpy(SystemRegPath, UserRegPath);
+
+		RtlInitUnicodeString(&RegPath, SystemRegPath);
+		Status = APIProxyLoadDriver(&RegPath);
 
 	}
 	break;
+
+	case IOCTL_API_PROXY_UNLOAD_DRIVER:
+	{
+		auto UserRegPath = (WCHAR*)UserData;
+		UNICODE_STRING RegPath;
+
+		RtlInitUnicodeString(&RegPath, UserRegPath);
+		Status = APIProxyUnLoadDriver(&RegPath);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_CREATE_REGISTRY_KEY:
+	{
+		auto CreateRegInfo = (OpenCreateRegistryInfo*)UserData;
+		HANDLE NewKeyHandle = NULL;
+
+		if (DataSize < sizeof(OpenCreateRegistryInfo)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyCreateKey(CreateRegInfo, &NewKeyHandle);
+		
+		HANDLE* Output = (HANDLE*)OutBuffer;
+		*Output = NewKeyHandle;
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_OPEN_REGISTRY_KEY:
+	{
+		auto OpenRegInfo = (OpenCreateRegistryInfo*)UserData;
+		HANDLE NewKeyHandle = NULL;
+
+		if (DataSize < sizeof(OpenCreateRegistryInfo)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyOpenKey(OpenRegInfo, &NewKeyHandle);
+
+		HANDLE* Output = (HANDLE*)OutBuffer;
+		*Output = NewKeyHandle;
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_DELETE_REGISTRY_KEY:
+	{
+		auto KeyHandle = (HANDLE*)UserData;
+		Status = APIProxyDeleteRegistryKey(*KeyHandle);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_REGISTRY_SET_KEY:
+	{
+		auto SetValueInfo = (RegistrySetValueInfo*)UserData;
+		if (DataSize < sizeof(RegistrySetValueInfo)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyRegistrySetValue(SetValueInfo);
+	}
+	break;
+
+	case IOCTL_API_PROXY_REGISTRY_QUERY_KEY_VALUE:
+	{
+		auto QueryKeyValueInfo = (RegistryQueryKeyValueInfo*)UserData;
+		if (DataSize < sizeof(RegistryQueryKeyValueInfo)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyRegistryQueryValue(QueryKeyValueInfo);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_WSAStartup:
+	{
+		auto WSAStartInfo = (WSAStartCleanUp*)UserData;
+		if (DataSize < sizeof(WSAStartCleanUp)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyWSAStartup(WSAStartInfo);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_WSACleanup:
+	{
+		auto WSASCleanUpInfo = (WSAStartCleanUp*)UserData;
+		if (DataSize < sizeof(WSAStartCleanUp)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyWSACleanup(WSASCleanUpInfo);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_Socket:
+	{
+		auto SocketInfo = (SocketStruct*)UserData;
+		if (DataSize < sizeof(SocketStruct)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxySocket(&(SocketInfo->WSAStartCleanUpptr), (PKSOCKET*)&(SocketInfo->Socket), 
+			SocketInfo->Domain, SocketInfo->Type, SocketInfo->Protocol, SocketInfo->Flags);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_CloseSocket:
+	{
+		auto SocketPtr = (PVOID*)UserData;
+		if (DataSize < sizeof(PVOID)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyCloseSocket((PKSOCKET)*SocketPtr);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_Connect:
+	{
+		auto ConnectInfo = (ConnectStruct*)UserData;
+		if (DataSize < sizeof(ConnectStruct)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyConnect(ConnectInfo);
+		DbgPrint("Status %x\n", Status);
+	}
+	break;
+
+	case IOCTL_API_PROXY_Send:
+	{
+		auto SendInfo = (SendRecvStruct*)UserData;
+		if (DataSize < sizeof(SendRecvStruct)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxySend(SendInfo);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_Recv:
+	{
+		auto RecvInfo = (SendRecvStruct*)UserData;
+		if (DataSize < sizeof(SendRecvStruct)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyRecv(RecvInfo);
+
+	}
+	break;
+
+
+	case IOCTL_API_PROXY_Bind:
+	{
+		auto BindInfo = (BindStruct*)UserData;
+		if (DataSize < sizeof(BindStruct)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyBind(BindInfo);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_Accept:
+	{
+		auto AcceptInfo = (AcceptStruct*)UserData;
+		if (DataSize < sizeof(AcceptStruct)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyAccept(AcceptInfo);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_listen:
+	{
+		APIProxyListen();
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_GetAddrInfo:
+	{
+		auto AddrInfo = (GetAddrInfoStruct*)UserData;
+		if (DataSize < sizeof(GetAddrInfoStruct)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+
+		Status = APIProxtGetAddrInfo(AddrInfo);
+
+	}
+	break;
+
+	case IOCTL_API_PROXY_FreeAddrInfo:
+	{
+		auto AddrInfo = (struct addrinfo*)UserData;
+		if (DataSize < sizeof(struct addrinfo*)) {
+			Status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		Status = APIProxyFreeAddrInfo(AddrInfo);
+
+	}
 	break;
 
 	default:

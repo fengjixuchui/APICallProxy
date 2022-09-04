@@ -38,11 +38,17 @@ typedef struct _AllocateVirtualMeomryInfo {
 
 } AllocateVirtualMeomryInfo, * PAllocateVirtualMeomryInfo;
 
+typedef struct _FreeVirtualMeomryInfo {
+	_In_ HANDLE     ProcessHandle;
+	_Inout_ PVOID	BaseAddress;
+
+} FreeVirtualMeomryInfo, * PFreeVirtualMeomryInfo;
+
 typedef struct _ReadWriteVirtualMemoryInfo {
 	_In_ HANDLE     ProcessHandle;
 	_In_ SIZE_T	    DataLen;
 	_In_ PVOID		BaseAddress;
-	_In_ BYTE* Data;
+	_In_ PVOID		Data;
 
 } ReadWriteVirtualMemoryInfo, * PReadWriteVirtualMemoryInfo;
 
@@ -99,3 +105,93 @@ typedef struct _QueueUSerApcInfo {
 	_In_ PVOID		ArgumentData;
 
 } QueueUSerApcInfo, * PQueueUSerApcInfo;
+
+
+typedef struct _OpenCreateRegistryInfo {
+	_In_ WCHAR			RegistryKeyPath[600];
+	_In_ ACCESS_MASK	DesiredAccess;			//refere to MSDN for information
+	OUT  ULONG			CreateDisposition;		//Key created or opened ( used only in ZwCreateKey() )
+
+} OpenCreateRegistryInfo, * POpenCreateRegistryInfo;
+
+typedef struct _RegistrySetValueInfo {
+	_In_ WCHAR			KeyName[600];
+	_In_ HANDLE			KeyHandle;			
+	_In_ ULONG			Type;
+	_In_ PVOID			Date;
+	_In_ ULONG			DateSize;
+
+} RegistrySetValueInfo, * PRegistrySetValueInfo;
+
+typedef struct _RegistryQueryKeyValueInfo {
+	_In_ HANDLE			KeyHandle;
+	_In_ WCHAR			ValueName[100];
+	_In_ ULONG			KeyValueInformationClass;
+	_In_ PVOID			Data;
+	_In_ ULONG			DateSize;
+	_In_ PULONG         ResultLength;
+
+} RegistryQueryKeyValueInfo, * PRegistryQueryKeyValueInfo;
+
+typedef struct _WSAStartCleanUp {
+	_In_ PVOID		WskRegistrationPtr;
+	_In_ PVOID		WskProviderPtr;
+	_In_ PVOID		WskDispatchPtr;
+
+} WSAStartCleanUp, * PWSAStartCleanUp;
+
+typedef struct _SocketStruct {
+	_In_ WSAStartCleanUp WSAStartCleanUpptr;
+	_In_ INT			 Domain;
+	_In_ INT			 Type;
+	_In_ INT			 Protocol;
+	_In_ ULONG			 Flags;
+	OUT PVOID			 Socket;
+
+} SocketStruct, * PSocketStruct;
+
+typedef struct _ConnectStruct {
+	_In_ PVOID			  Socket;
+	_In_ struct addrinfo* AddrInfo;
+
+} ConnectStruct, * PConnectStruct;
+
+
+typedef struct _GetAddrInfoStruct {
+	_In_    WSAStartCleanUp			 SocketInfo;
+	_In_    CHAR*					 Node;
+	_In_    CHAR*					 Service;
+	_In_    struct addrinfo*		 Hints;
+	_Inout_ struct addrinfo**		 Result;
+
+} GetAddrInfoStruct, * PGetAddrInfoStruct;
+
+
+typedef struct _SendRecvStruct {
+	_In_ PVOID    Socket;
+	_In_ PVOID	  Buffer;
+	_In_ ULONG	  BufferLen;
+
+} SendRecvStruct, * PSendRecvStruct;
+
+typedef struct _SendToRecvFromStruct {
+	_In_ PVOID				Socket;
+	_In_ PVOID				Buffer;
+	_In_ ULONG				BufferLen;
+	OUT  struct sockaddr*   AddressInfo;
+	OUT  ULONG*			    AddressinfoLen;
+
+} SendToRecvFromStruct, * PSendToRecvFromStruct;
+
+typedef struct _BindStruct {
+	_In_ PVOID				 Socket;
+	_In_ struct sockaddr*	 Address;
+
+} BindStruct, * PBindStruct;
+
+typedef struct _AcceptStruct {
+	_In_ PVOID				    Socket;
+	_In_ struct sockaddr_in*	Address;
+	OUT INT*					SocketLen;
+	OUT  PVOID					NewSocket;
+} AcceptStruct, * PAcceptStruct;
